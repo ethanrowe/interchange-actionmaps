@@ -4,6 +4,7 @@ catalogs/goldfish/var/log/*
 catalogs/goldfish/var/run/*
 catalogs/goldfish/var/session/*
 catalogs/goldfish/var/tmp/*
+catalogs/goldfish/products/*.autonumber
 interchange/interchange_local.cfg
 interchange/bin/interchange
 interchange/src/vlink*
