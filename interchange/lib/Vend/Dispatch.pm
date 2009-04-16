@@ -1711,28 +1711,14 @@ sub do_action {
 
 	Vend::Action::do_mv(\%do_mv_params);
 
-	my ($action_sub, $status);
+	my ($action_sub, $status, $url_pattern_obj);
 
-	my $url_patterns;
-	my $url_pattern_obj;
-
-	if( defined ($url_patterns = Vend::URLPatterns::Registry::patterns_for($catalog_id)) &&
-		defined (my $catalog_url_pattern = $url_patterns->parse_path($final_path)) ) {
-::logDebug("Executing catalog ...........");
-		# Try to find a catalog specific pattern match
-		$url_pattern_obj = $catalog_url_pattern->{'pattern'}; 
+	for my $registry ($catalog_id, '') {
+::logDebug("Checking URLpattern registry: $registry");
+		next unless my $url_patterns = Vend::URLPatterns::Registry::patterns_for($registry);
+		next unless $url_pattern_obj = $url_patterns->parse_path($final_path);
+		$url_pattern_obj = $url_pattern_obj->{pattern};
 	}
- 	elsif( 
- 		defined ($url_patterns = Vend::URLPatterns::Registry::patterns_for('')) &&
- 		defined (my $global_url_pattern = $url_patterns->parse_path($final_path)) ) {
- 			# Try to find a global pattern match
-::logDebug("Executing global ...........");
- 			$url_pattern_obj = $global_url_pattern->{'pattern'}; 
- 	}
-	else {
-		# Nothing matched - do something default first check catalogs then global
-	}
-
 
 	# Invoke any methods that were found
 	eval {
