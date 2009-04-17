@@ -1726,14 +1726,12 @@ sub do_action {
 		if(defined $url_pattern_obj){
 			# Instantiate object for matched path pattern
 			my $package = $url_pattern_obj->package();
-			my $method = $url_pattern_obj->method();
+			my $method = UNIVERSAL::can($package, $url_pattern_obj->method);
+			die sprintf("Cannot find method %s for controller package %s", $package, $url_pattern_obj->method)
+				unless $method;
+
 			my $action_obj = $package->new( request_path => $final_path );
 			$status = $action_obj->$method($final_path);
-
-#			if($redo_action){
-#			do_action($parameters);
-# ::logDebug("Running do_action() again ----------------0---------------->");
-#			}
 		}
 		else {
 ::logDebug("URLPattern Object not defined!---------------->");
