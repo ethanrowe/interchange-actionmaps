@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 18;
+use Test::More tests => 22;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 
@@ -18,39 +18,39 @@ ok($patterns_reg->isa('Vend::URLPatterns'), 'returned a URLPatterns Object');
 
 # Test urlpattern registration process
 my $first_url_pattern = Vend::URLPattern->new({ 
-	pattern => '^userview/(\d{2})/$',
+	pattern => 'userview/(\d{2})/',
 	package => 'IC::UserView',
-	method  => 'get_user()'
+	method  => 'get_user'
 });
 
 my $second_url_pattern = Vend::URLPattern->new({
-	pattern => '^userview/(\d{2})/(\d{4})/$',
+	pattern => 'userview/(\d{2})/(\d{4})/',
 	package => 'IC::UserView',
-	method  => 'save_user()'
+	method  => 'save_user'
 });
 
 my $third_url_pattern = Vend::URLPattern->new({
-	pattern => '^userview/(\d{2})/(\d{4})/$',
+	pattern => 'userview/(\d{2})/(\d{4})/',
 	package => 'IC::UserView',
-	method  => 'update_user()',
+	method  => 'update_user',
 });
 
 my $fourth_url_pattern = Vend::URLPattern->new({
-	pattern => '^userview/(\d{2})/(\d{4})/$',
+	pattern => 'userview/(\d{2})/(\d{4})/',
 	package => 'IC::ProductDetail',
-	method  => 'save_user()',
+	method  => 'save_user',
 });
 
 my $fifth_url_pattern = Vend::URLPattern->new({ 
-	pattern => '^userview/(\d{2})/(\d{4})/$',
+	pattern => 'userview/(\d{2})/(\d{4})/',
 	package => 'IC::UserView',
-	method  => 'get_user()',
+	method  => 'get_user',
 });
 
 my $sixth_url_pattern = Vend::URLPattern->new({
-	pattern => '^userview/(\d{2})/(\d{4})/$',
+	pattern => 'userview/(\d{2})/(\d{4})/',
 	package => 'IC::UserView',
-	method  => 'update_user()',
+	method  => 'update_user',
 });
 
 # Make some Standard actionmap objects
@@ -61,9 +61,10 @@ my $action_obj = Vend::Action::Standard->new({
 
 
 my $seventh_url_pattern = Vend::URLPattern->new({
-	pattern => '^product_detail',
+	pattern => 'product_detail/.*',
 	package => 'IC::ProductDetail',
-	action  => $action_obj,
+	method  => 'product_detail',
+#action  => $action_obj,
 });
 
 # Register the patterns
@@ -85,14 +86,14 @@ $patterns_reg->register($seventh_url_pattern);
 my $patterns = $patterns_reg->url_patterns();
 #is($patterns->[0]->{'catalog_id'}, 'IC', 'returned URLPattern catalog_id from URLPatterns array');
 ok($patterns->[0]->isa('Vend::URLPattern'), 'returned URLPattern object from URLPatterns array');
-is($patterns->[0]->pattern(), '^userview/(\d{2})/$', 'returned URLPattern URL from URLPatterns array');
+is($patterns->[0]->pattern(), 'userview/(\d{2})/', 'returned URLPattern URL from URLPatterns array');
 is($patterns->[0]->package(), 'IC::UserView', 'returned URLPattern Module from URLPatterns array');
-is($patterns->[0]->method(), 'get_user()', 'returned URLPattern Method from URLPatterns array');
+is($patterns->[0]->method(), 'get_user', 'returned URLPattern Method from URLPatterns array');
 
 # Test generate_path()
 my %params = (
 	'package'    => 'IC::UserView',
-	'method'     => 'save_user()',
+	'method'     => 'save_user',
     'parameters' => ['32', '2004']
 );
 
@@ -102,7 +103,7 @@ is($generated_path, 'userview/32/2004/', 'Path generated properly:' . $generated
 
 %params = (
 	'package'    => 'IC::UserView',
-	'method'     => 'save_user()',
+	'method'     => 'save_user',
     'parameters' => ['foo', 'bar']
 );
 
@@ -116,33 +117,33 @@ my $param = $result->{parameters}[0];
 is($param, '32', 'First registered patterns parameter parsed successfully');
 
 $path = "userview/32/2003/";
-my $found_url_pattern_obj = $patterns_reg->parse_path($path)->{'pattern'};
+my $found_url_pattern_obj = $patterns_reg->parse_path($path);
 ok($found_url_pattern_obj->isa('Vend::URLPattern'), 'parse_path() - returned a URLPattern Object');
-is($found_url_pattern_obj->pattern(), '^userview/(\d{2})/(\d{4})/$', 'parse_path() - returned URLPattern URL from URLPatterns array');
+is($found_url_pattern_obj->pattern(), 'userview/(\d{2})/(\d{4})/', 'parse_path() - returned URLPattern URL from URLPatterns array');
 is($found_url_pattern_obj->package(), 'IC::UserView', 'parse_path() - returned URLPattern Module from URLPatterns array');
-is($found_url_pattern_obj->method(), 'save_user()', 'returned URLPattern Method from URLPatterns array');
+is($found_url_pattern_obj->method(), 'save_user', 'returned URLPattern Method from URLPatterns array');
 
 $path = "userview/32/";
-$found_url_pattern_obj = $patterns_reg->parse_path($path)->{'pattern'};
+$found_url_pattern_obj = $patterns_reg->parse_path($path);
 ok($found_url_pattern_obj->isa('Vend::URLPattern'), 'parse_path() - returned a URLPattern Object');
-is($found_url_pattern_obj->pattern(), '^userview/(\d{2})/$', 'parse_path() - returned URLPattern URL from URLPatterns array');
+is($found_url_pattern_obj->pattern(), 'userview/(\d{2})/', 'parse_path() - returned URLPattern URL from URLPatterns array');
 is($found_url_pattern_obj->package(), 'IC::UserView', 'parse_path() - returned URLPattern Module from URLPatterns array');
-is($found_url_pattern_obj->method(), 'get_user()', 'returned URLPattern Method from URLPatterns array');
+is($found_url_pattern_obj->method(), 'get_user', 'returned URLPattern Method from URLPatterns array');
 
-my $found_params = $patterns_reg->parse_path($path)->{'parameters'};
+my $found_params = $patterns_reg->parse_path($path)->parameters;
 print "Params: " . $found_params->[0] . "\n";
 
 
 
 $path = "product_detail/SKU01283/The-North-Face-DenaliJacket.html";
-$found_url_pattern_obj = $patterns_reg->parse_path($path)->{'pattern'};
+$found_url_pattern_obj = $patterns_reg->parse_path($path);
 ok($found_url_pattern_obj->isa('Vend::URLPattern'), 'parse_path() - returned a URLPattern Object');
-is($found_url_pattern_obj->pattern(), '^product_detail', 'parse_path() - returned URLPattern URL from URLPatterns array');
+is($found_url_pattern_obj->pattern(), 'product_detail/.*', 'parse_path() - returned URLPattern URL from URLPatterns array');
 is($found_url_pattern_obj->package(), 'IC::ProductDetail', 'parse_path() - returned URLPattern Module from URLPatterns array');
-ok($found_url_pattern_obj->action()->isa('Vend::Action::Standard'), 'URL::Pattern instance has an action attribute defined');
-
-$found_params = $patterns_reg->parse_path($path)->{'parameters'};
-print "Params: " . $found_params->[0] . "\n";
+#ok($found_url_pattern_obj->action()->isa('Vend::Action::Standard'), 'URL::Pattern instance has an action attribute defined');
+is($found_url_pattern_obj->method, 'product_detail', 'parse_path() - URLPattern object has appropriate method');
+#$found_params = $patterns_reg->parse_path($path)->parameters;
+#print "Params: " . $found_params->[0] . "\n";
 
 # Make sure a non match returns 0
 $path = "userview/word/";

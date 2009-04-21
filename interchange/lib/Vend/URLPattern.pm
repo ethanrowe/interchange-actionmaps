@@ -9,6 +9,27 @@ use Moose;
 has pattern => (
 	is  => 'rw', 
 	isa => 'Str',
+	trigger => sub {
+		my $self = shift;
+		$self->clear_parser;
+		$self->clear_regex;
+	},
+);
+
+has parser => (
+	reader  	=> 'parser',
+	clearer		=> 'clear_parser',
+	init_arg	=> '_parser',
+	default		=> sub { shift->_build_parser },
+	lazy		=> 1,
+);
+
+has pattern_regex => (
+	reader		=> 'regex',
+	clearer		=> 'clear_regex',
+	init_arg	=> '_regex',
+	default		=> sub { shift->_build_regex },
+	lazy		=> 1,
 );
 
 has package => (
@@ -26,9 +47,10 @@ has action => (
 	isa => 'Object',
 );
 
-has named_parameters => (
+has parameter_names => (
 	is  => 'rw',
 	isa => 'ArrayRef',
+	default => sub { [] },
 );
 
 has 'parameters' => (
@@ -36,44 +58,65 @@ has 'parameters' => (
 	isa => 'ArrayRef',
 );
 
-no Moose;
+sub _build_parser {
+	my $p = Regexp::Parser->new( '^' . shift->pattern . '$' );
+	$p->parse;
+	return $p;
+}
+
+sub _build_regex {
+	my $rx = shift->parser->qr;
+	return qr{($rx)};
+}
 
 sub parse_path {
-
 	my ($self, $path) = @_;
-	my @url_params;
-	my $pattern = $self->pattern();
 
-	@url_params = $path =~ /($pattern)/g;
+	my @url_params = $path =~ $self->regex;
 	return unless @url_params;
 
-#::logDebug("URLPattern ------------------->$path:$pattern");
 	shift @url_params;
-	return {
-		pattern	   => $self,
-		parameters => \@url_params,
-	};
+	my $class = blessed($self);
+
+	return $class->new(
+		pattern		=> $self->pattern,
+		parameters	=> $self->_transform_matched_parameters(\@url_params),
+		method		=> $self->method,
+		package		=> $self->package,
+		parameter_names	=> [ @{ $self->parameter_names } ],
+	);
+}
+
+sub _transform_matched_parameters {
+	my ($self, $params) = @_;
+	my $names = $self->parameter_names;
+	return $params unless @$names;
+	return [
+		map { $_ => shift @$params }
+		@$names
+	];
 }
 
 sub generate_path {
     my ($self, $parameters) = @_;
 
-    my $pattern = $self->pattern();
-    my @params= @{$parameters->{parameters}};
-    my $path; 
- 
-    if( $self->package() ne $parameters->{package} ||
+    if ($self->package() ne $parameters->{package} ||
 		$self->method() ne $parameters->{method} ) {
 		return;
 	}
 
-	my $matched_pattern = $self->_find_pattern_match(\@params);
-	if($matched_pattern) {
+    my $params = $self->_transform_parameters_for_path($parameters->{parameters} || []);
+	return unless defined $params;
+
+    my $pattern = $self->pattern();
+    my $path; 
+ 
+	if ($self->_find_pattern_match($params)) {
 		# Plug in captured parameters if any exist 
 		my $final_str = $pattern;
 		$final_str =~ /\((.*?)\)/;
 
-		foreach my $param (@params) {
+		foreach my $param (@$params) {
 			$final_str =~ s//$param/;
 		}   
        
@@ -86,25 +129,31 @@ sub generate_path {
     return;
 }
 
+sub _transform_parameters_for_path {
+	my ($self, $params) = @_;
+	my $names = $self->parameter_names;
+	return $params unless @$names;
+
+	$params = ref($params) eq 'HASH' ? { %$params } : { @$params };
+	my $result = [ delete @$params{@$names} ];
+	return if %$params;
+	return $result;
+}
+
 sub _find_pattern_match {
 	my ($self, $params) = @_;
 
-	my $r = Regexp::Parser->new;
-	my @capture_params;
-
-	my $rx = $self->pattern();
-	$r->regex($rx);
-
-	my $num_groups = $r->nparen();
-	my $captures = $r->captures();
-	my $visual = $r->visual();
-
-	if($num_groups == ($#$params+1)) {
-		my $i=0;
-		foreach my $capture (@$captures) {
+	my $r = $self->parser;
+	if($r->nparen == @$params) {
+		my @capture_params;
+		my $i = 0;
+		foreach my $capture (@{ $r->captures }) {
 			my $capture_visual = '^' . $capture->visual() . '$';
 
-			if($$params[$i] !~ /$capture_visual/) { 
+			my $param_value = $params->[$i];
+			$param_value = '' unless defined $param_value;
+
+			if($param_value !~ /$capture_visual/) { 
 				return;
 			}
 			push(@capture_params, $capture_visual);
@@ -125,12 +174,12 @@ Vend::URLPattern - responsible for representing a url path pattern and parameter
 
 =head1 SYSOPSIS
 
-use IC::UserView;
-my $url_obj = Vend::URLPattern->new( { pattern => '^userview/(\d+{2})/$',
-                                       object  => 'IC::UserVIew' });
-
-my $path = "userview/20/";
-$self->parse_path($path);
+ use IC::UserView;
+ my $url_obj = Vend::URLPattern->new( { pattern => '^userview/(\d+{2})/$',
+                                        object  => 'IC::UserVIew' });
+ 
+ my $path = "userview/20/";
+ $self->parse_path($path);
 
 =head1 DESCRIPTION 
 
