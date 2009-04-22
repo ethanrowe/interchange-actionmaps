@@ -1,20 +1,23 @@
 use strict;
 use warnings;
 
-use Test::More tests => 22;
+use Test::More tests => 27;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 
-use Vend::URLPattern;
-use Vend::URLPatterns;
-use Vend::Action::Standard;
+my $class;
+BEGIN {
+	use_ok $class = 'Vend::URLPatterns';
+	eval "use Vend::URLPattern";
+	eval "use Vend::Action::Standard";
+}
 
 # Instantiate registration object URLPatterns
-my $patterns_reg = Vend::URLPatterns->new();
+my $patterns_reg = $class->new();
 
 # Make sure its a URLPatterns Object
 ok(defined $patterns_reg,  'new() returned something');
-ok($patterns_reg->isa('Vend::URLPatterns'), 'returned a URLPatterns Object');
+ok($patterns_reg->isa($class), 'returned a URLPatterns Object');
 
 # Test urlpattern registration process
 my $first_url_pattern = Vend::URLPattern->new({ 
@@ -29,6 +32,52 @@ my $second_url_pattern = Vend::URLPattern->new({
 	method  => 'save_user'
 });
 
+$patterns_reg->register( $first_url_pattern );
+is_deeply(
+	$patterns_reg->url_patterns,
+	[ $first_url_pattern ],
+	'register() first pattern',
+);
+
+$patterns_reg->register( $second_url_pattern );
+is_deeply(
+	$patterns_reg->url_patterns,
+	[ $first_url_pattern, $second_url_pattern ],
+	'register() second pattern',
+);
+
+$patterns_reg->register( { pattern => 'foo', package => 'blah', method => 'me' } );
+is_deeply(
+	[ map { pattern_transform($_) } @{$patterns_reg->url_patterns} ],
+	[	pattern_transform($first_url_pattern),
+		pattern_transform($second_url_pattern),
+	  	{ pattern => 'foo', package => 'blah', method => 'me' },
+    ],
+	'register() third pattern -- auto-vivify from hash',
+);
+
+$patterns_reg = $class->new;
+my ($a, %b);
+$patterns_reg->register(
+	$a = {
+		method => 'method_a',
+		package => 'package_a',
+		pattern => 'pattern_a',
+	},
+	$first_url_pattern,
+	$b = {
+		method => 'method_b',
+		package => 'package_b',
+		pattern => 'pattern_b',
+	},
+	$second_url_pattern,
+);
+
+is_deeply(
+	[ map { pattern_transform($_) } @{ $patterns_reg->url_patterns } ],
+	[ $a, pattern_transform($first_url_pattern), $b, pattern_transform($second_url_pattern) ],
+	'register() list of mixed structures',
+);
 my $third_url_pattern = Vend::URLPattern->new({
 	pattern => 'userview/(\d{2})/(\d{4})/',
 	package => 'IC::UserView',
@@ -67,21 +116,17 @@ my $seventh_url_pattern = Vend::URLPattern->new({
 #action  => $action_obj,
 });
 
+$patterns_reg = $class->new;
 # Register the patterns
-$patterns_reg->register($first_url_pattern);
-$patterns_reg->register($second_url_pattern);
-
-# Test registering of array of objects
-my @obj_array;
-push(@obj_array, $third_url_pattern);
-push(@obj_array, $fourth_url_pattern);
-$patterns_reg->register(\@obj_array);
-
-# Test registration of unblessed hash 
-$patterns_reg->register($fifth_url_pattern);
-$patterns_reg->register($sixth_url_pattern);
-$patterns_reg->register($seventh_url_pattern);
-
+$patterns_reg->register(
+	$first_url_pattern,
+	$second_url_pattern,
+	$third_url_pattern,
+	$fourth_url_pattern,
+	$fifth_url_pattern,
+	$sixth_url_pattern,
+	$seventh_url_pattern,
+);
 # Test url_patterns() method
 my $patterns = $patterns_reg->url_patterns();
 #is($patterns->[0]->{'catalog_id'}, 'IC', 'returned URLPattern catalog_id from URLPatterns array');
@@ -149,4 +194,14 @@ is($found_url_pattern_obj->method, 'product_detail', 'parse_path() - URLPattern 
 $path = "userview/word/";
 $found_url_pattern_obj = $patterns_reg->parse_path($path);
 is($found_url_pattern_obj, undef, 'pattern_for_path() returned 0 properly for an unmatched path');
+
+sub pattern_transform {
+	my $o = shift;
+	return {} unless ref($o) eq 'Vend::URLPattern';
+	return {
+		pattern => $o->pattern,
+		method => $o->method,
+		package => $o->package,
+	};
+}
 
