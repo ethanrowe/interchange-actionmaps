@@ -8,27 +8,20 @@ use warnings;
 my %registry = ();
 
 sub patterns_for {
-    my ($catalog_id) = @_;
+    my ($self, $catalog_id) = @_;
     return $registry{$catalog_id};
 }
 
 sub register_patterns {
-    my ($catalog_id, $patterns) = @_;
+    my $self = shift;
+	my $catalog_id = shift;
 
-    my $url_patterns = patterns_for($catalog_id);
-
-    if(!$url_patterns) {
-		$url_patterns = _initialize_patterns_for($catalog_id);
-    }
-
-    foreach my $pattern (@$patterns) {
-	    $url_patterns->register($pattern);
-	}
-    return 1;  
+    my $url_patterns = $self->patterns_for($catalog_id) || $self->_initialize_patterns_for($catalog_id);
+	return $url_patterns->register(@_);
 }
 
 sub _initialize_patterns_for {
-	my ($catalog_id) = @_;
+	my ($self, $catalog_id) = @_;
 
     my $url_patterns_obj = Vend::URLPatterns->new();
     if($catalog_id) {
